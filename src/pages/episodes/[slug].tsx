@@ -3,7 +3,6 @@ import { ptBR } from 'date-fns/locale'
 import Image from 'next/image'
 import Link from 'next/link'
 import { GetStaticPaths, GetStaticProps } from 'next'
-import { useRouter } from 'next/router'
 import { api } from '../../services/api'
 import { convertDurationToTimeString } from '../../utils/convertDurationToTimeString'
 
@@ -26,7 +25,12 @@ type EpisodeProps = {
 }
 
 export default function Episode({ episode }: EpisodeProps) {
-  const router = useRouter();
+  /*As linhas abaixo só são necessárias se o método 'getStaticPaths' retornar 
+   * falback: true. No caso de 'blocking' não precisa */
+  //const router = useRouter();
+  // if (router.isFallback) {
+  //   return <p>Carregando...</p>
+  // }
 
   return (
     <div className={styles.episode}>
@@ -65,12 +69,35 @@ export default function Episode({ episode }: EpisodeProps) {
 
 //Esse método é necessário quando a página for "estática e dinâmica" ao mesmo tempo
 export const getStaticPaths: GetStaticPaths = async () => {
+  //Pegando dados de 2 episódios para gerar suas respectivas páginas estáticas
+  const { data } = await api.get('episodes', {
+    params: {
+      _limit: 2,
+      _sort: 'published_at',
+      _order: 'desc'
+    }
+  })
+
+  const paths = data.map(episode => {
+    return {
+      params: {
+        slug: episode.id
+      }
+    }
+  })
+
   return {
-    paths: [],
+    paths,
+    //Pode ser true: página é requisitada pelo cliente e não fica sauva
+    //false: dá erro 404 se não foi gerada antes
+    //'blocking': gera a página estática na primeira requisição
     fallback: 'blocking'
   }
 }
 
+//O método 'getStaticProps' é obrigatório em toda rota que está utilizando geração 
+//estática (usa o método 'getStaticProps' e que recebe parâmetros dinâmicos e portanto
+//tem o nome do arquivo '[slug].tsx')
 //ctx: contexto da página, onde está os dados como o slug (o que há no fim da url
 //após a última barra)
 export const getStaticProps: GetStaticProps = async (ctx) => {
